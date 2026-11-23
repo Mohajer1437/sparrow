@@ -1,432 +1,545 @@
-<div dir="rtl">
+# Sparrow
 
-# Sparrow — Context Engineering Platform
+**A Local-First Agentic Development Platform**
 
-یک Agent CLI/REPL مبتنی بر معماری Clean Architecture که با LLM محلی (Ollama) کار می‌کند.
+Sparrow is an experimental, local-first platform for building and orchestrating AI-powered development workflows.
+
+It combines agent orchestration, role-based model assignment, context management, task planning, controlled execution, verification, checkpointing, and recovery in a modular TypeScript architecture.
+
+Sparrow is designed around a central principle:
+
+**An AI agent should not be trusted with unrestricted autonomy. Its decisions should operate within explicit execution boundaries, observable workflows, and recoverable state.**
+
+> **Project status: Experimental**
+>
+> Sparrow is under active development. Some capabilities are implemented, while others still require broader validation. The current release should not be considered production-ready. See [Known Limitations](#known-limitations).
 
 ---
 
-## فهرست
+## Table of Contents
 
-- [پیش‌نیازها](#پیش‌نیازها)
-- [نصب](#نصب)
-- [شروع سریع](#شروع-سریع)
-- [دستورات CLI](#دستورات-cli)
-- [محیط REPL](#محیط-repl)
-- [Web UI (مشاهده‌پذیری)](#web-ui-مشاهدهپذیری)
-- [سیستم Multi-Agent](#سیستم-multi-agent)
-- [مدل‌ها](#مدل‌ها)
-- [Knowledge Pipeline](#knowledge-pipeline)
-- [Recovery](#recovery)
-- [Runtime Protection](#runtime-protection)
-- [Configuration](#configuration)
+- [Overview](#overview)
+- [Design Principles](#design-principles)
+- [Key Capabilities](#key-capabilities)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [CLI](#command-line-interface)
+- [Interactive REPL](#interactive-repl)
+- [Agent Orchestration](#agent-orchestration)
+- [Model and Provider Management](#model-and-provider-management)
 - [Workspace Management](#workspace-management)
-- [Audit Trail](#audit-trail)
-- [معماری](#معماری)
-- [عیب‌یابی](#عیب‌یابی)
-- [میانبرها](#میانبرها)
+- [Execution Recovery](#execution-recovery)
+- [Runtime Protection](#runtime-protection)
+- [Web UI](#web-ui)
+- [Configuration](#configuration)
+- [Project Data](#project-data)
+- [Development](#development)
+- [Security Considerations](#security-considerations)
+- [Known Limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ---
 
-## پیش‌نیازها
+## Overview
 
-| نرم‌افزار | نسخه | توضیح |
-|-----------|------|-------|
-| Node.js | 18+ | Runtime |
-| npm | 9+ | Package manager |
-| Ollama | آخرین نسخه | LLM Provider محلی |
+Most AI coding tools focus on generating code from prompts. Sparrow explores a broader problem: how to coordinate AI-driven development tasks while maintaining control over their execution.
+
+Rather than treating an LLM as an unrestricted autonomous system, Sparrow separates responsibilities across distinct components:
+
+- **Planning:** Translating development requests into structured tasks.
+- **Context management:** Gathering and organizing relevant project information.
+- **Orchestration:** Coordinating agents, roles, models, and execution workflows.
+- **Execution:** Applying changes through controlled tools and execution components.
+- **Verification:** Evaluating execution results.
+- **Recovery:** Preserving execution state and supporting continuation after interruptions.
+- **Observability:** Recording execution events and exposing workflow information.
+
+Sparrow is built primarily with TypeScript and Node.js. It is designed for local execution and supports integration with LLM providers, including local model runtimes such as Ollama.
+
+## Design Principles
+
+### 1. Controlled Autonomy
+
+AI-generated decisions should not automatically translate into unrestricted system actions.
+
+Sparrow separates decision-making from execution and introduces explicit components for validation, tool execution, and workflow control.
+
+### 2. Local-First Architecture
+
+Sparrow is designed to run on a developer's own machine.
+
+Local model providers can be used without requiring a cloud AI service. Cloud providers may also be configured where supported.
+
+### 3. Separation of Responsibilities
+
+Domain logic, application contracts, infrastructure implementations, and CLI interfaces are organized into separate architectural layers.
+
+### 4. Observable Execution
+
+Important execution events, checkpoints, and workflow states are recorded to make agent behavior easier to inspect and debug.
+
+### 5. Recoverability
+
+Long-running workflows can maintain execution checkpoints. Recovery operations are explicitly initiated rather than silently restarting interrupted work.
+
+### 6. Resource Awareness
+
+Runtime protection mechanisms are designed to monitor system resource conditions and control execution when configured thresholds are exceeded.
+
+---
+
+## Key Capabilities
+
+| Capability | Description |
+|---|---|
+| Agent orchestration | Coordinate role-based development workflows |
+| Model assignment | Configure models for different agent roles |
+| Provider management | Resolve configured LLM providers and models |
+| Context engineering | Gather and organize project context |
+| Task planning | Convert development requests into structured plans |
+| Controlled execution | Execute tasks through dedicated workflow components |
+| Patch management | Apply changes through patch execution components |
+| Verification | Evaluate execution and task outcomes |
+| Checkpointing | Preserve workflow progress |
+| Recovery | Resume eligible interrupted executions |
+| Runtime protection | Monitor resource conditions during execution |
+| Audit trail | Record structured execution events |
+| Workspace management | Maintain project-specific configuration and state |
+| Web observability | Inspect execution information through a read-only interface |
+
+The availability and maturity of individual capabilities may differ. Not every capability is necessarily exposed through the same CLI execution path.
+
+---
+
+## Architecture
+
+Sparrow follows a Clean Architecture-inspired structure.
+
+The main architectural layers are:
+
+```text
+src/
+├── domain/
+│
+├── contracts/
+│
+├── core/
+│   ├── agent/
+│   ├── audit/
+│   ├── checkpoint/
+│   ├── configuration/
+│   ├── context/
+│   ├── conversation/
+│   ├── discovery/
+│   ├── documentation/
+│   ├── execution/
+│   ├── git/
+│   ├── health/
+│   ├── knowledge/
+│   ├── memory/
+│   ├── observability/
+│   ├── patch/
+│   ├── planning/
+│   ├── prompt/
+│   ├── provider/
+│   ├── recovery/
+│   ├── reflection/
+│   ├── review/
+│   ├── runtime/
+│   ├── session/
+│   ├── tool/
+│   ├── verification/
+│   ├── workflow/
+│   └── workspace/
+│
+├── cli/
+│   ├── commands/
+│   └── repl/
+│
+└── app-factory.ts
+```
+
+### Architectural Boundaries
+
+The intended dependency direction is:
+
+```text
+Domain ← Contracts ← Core ← CLI
+```
+
+- **Domain:** Core business concepts and models.
+- **Contracts:** Interfaces and abstractions used by application components.
+- **Core:** Application and infrastructure implementations.
+- **CLI:** User-facing commands and interactive interfaces.
+- **AppFactory:** Composition root responsible for constructing application components.
+
+The architecture aims to keep domain concepts independent of external providers, command-line interfaces, and infrastructure details.
+
+### Execution Model
+
+A simplified role-based workflow can be represented as:
+
+```text
+User Request
+     |
+     v
+Role Resolution
+     |
+     v
+Model / Provider Resolution
+     |
+     v
+Configuration Validation
+     |
+     v
+Context Preparation
+     |
+     v
+Task Planning
+     |
+     v
+Plan Validation
+     |
+     v
+Execution Workflow
+     |
+     +----> Runtime Protection
+     |
+     +----> Checkpointing
+     |
+     +----> Audit Events
+     |
+     v
+Verification
+     |
+     v
+Execution Result
+```
+
+This is a conceptual representation, not a guarantee that every CLI command follows the exact same pipeline.
+
+---
+
+## Requirements
+
+| Dependency | Requirement | Purpose |
+|---|---|---|
+| Node.js | 18 or later | JavaScript runtime |
+| npm | 9 or later | Package management |
 | Git | 2.x | Version control |
+| Ollama | Optional | Local LLM runtime |
 
-### نصب Ollama
+A compatible LLM provider and model are required for AI-powered operations.
+
+### Local Model Runtime
+
+To use Ollama:
+
+1. Install Ollama from [ollama.com](https://ollama.com).
+2. Start the Ollama service.
+3. Download a model compatible with the required capabilities.
+
+Example:
 
 ```bash
-# دانلود از https://ollama.com و نصب
-
-# اجرای Ollama
 ollama serve
-
-# در ترمینال دیگر، دانلود مدل
-ollama pull qwen3-32b
 ```
+
+In another terminal:
+
+```bash
+ollama pull qwen3:8b
+```
+
+Model compatibility, tool-calling behavior, context capacity, and resource requirements depend on the selected model.
+
+The example above is illustrative. It is not a guarantee that this model is suitable for every Sparrow workflow.
 
 ---
 
-## نصب
+## Installation
+
+Clone the repository:
 
 ```bash
-# ورود به پوشه پروژه
-cd E:\agentic
+git clone https://github.com/Mohajer1437/sparrow.git
+cd sparrow
+```
 
-# نصب وابستگی‌ها
+Install dependencies:
+
+```bash
 npm install
-
-# Build
-npm run build
-
-# اجرای تست‌ها (اختیاری — 730 تست)
-npm test
 ```
+
+Build the project:
+
+```bash
+npm run build
+```
+
+The CLI entry point is generated under `dist/`.
 
 ---
 
-## شروع سریع
+## Quick Start
+
+Start an interactive session:
 
 ```bash
-# ترمینال ۱: اجرای Ollama
-ollama serve
-
-# ترمینال ۲: شروع REPL
 node dist/cli/main.js repl
 ```
 
-داخل REPL:
+You can then interact with Sparrow:
 
-```
-sparrow> سلام، پروژه رو بررسی کن
+```text
+sparrow> Analyze the project structure.
 sparrow> /status
+sparrow> /help
 sparrow> /exit
+```
+
+You can also submit a direct request:
+
+```bash
+node dist/cli/main.js ask "Analyze the project architecture"
+```
+
+Initialize a workspace:
+
+```bash
+node dist/cli/main.js init
+```
+
+Check the workspace:
+
+```bash
+node dist/cli/main.js doctor
+```
+
+Check the current application status:
+
+```bash
+node dist/cli/main.js status
 ```
 
 ---
 
-## دستورات CLI
+## Command-Line Interface
+
+Sparrow provides CLI commands for managing workspaces, sessions, models, roles, configuration, and execution state.
+
+The following examples describe the documented command interface. Individual commands and options may evolve as the project develops.
 
 ### Workspace
 
 ```bash
-# ساخت workspace جدید (فقط اولین بار)
+# Initialize a workspace
 node dist/cli/main.js init
 
-# بررسی سلامت workspace
+# Check workspace health
 node dist/cli/main.js doctor
 
-# وضعیت پروژه
+# Show application status
 node dist/cli/main.js status
 
-# نمایش workspace فعلی
+# Show the current workspace
 node dist/cli/main.js workspace
 
-# تغییر workspace
-node dist/cli/main.js use E:\my-project
+# Select another workspace
+node dist/cli/main.js use /path/to/project
 ```
 
-### Agent
+### Agent Interaction
 
 ```bash
-# سوال مستقیم از agent
-node dist/cli/main.js ask "یک فایل hello.ts بساز"
+# Submit a direct request
+node dist/cli/main.js ask "Create a hello.ts file"
 
-# شروع REPL
+# Start the interactive REPL
 node dist/cli/main.js repl
 
-# اجرای Web UI فقط-خواندنی (جزئیات در بخش Web UI)
+# Start the read-only Web UI
 node dist/cli/main.js serve
 ```
 
 ### Sessions
 
 ```bash
-# لیست sessionها
+# List sessions
 node dist/cli/main.js sessions
 
-# ادامه session قطع‌شده
+# Resume an eligible session
 node dist/cli/main.js resume sess-abc123
 
-# وضعیت patch یک session
+# Inspect a session patch status
 node dist/cli/main.js patch-status sess-abc123
 ```
 
 ### Git
 
 ```bash
-# وضعیت git
+# Show Git status
 node dist/cli/main.js git-status
 
-# لیست commitها
+# Show recent commits
 node dist/cli/main.js commits 10
 
-# بازگشت به commit خاص
+# Roll back to a commit
 node dist/cli/main.js rollback abc1234
 ```
+
+Git operations can modify the selected workspace. Review the target repository and its working tree before using commands that change files or history.
 
 ### Recovery
 
 ```bash
-# لیست executionهای قابل resume
+# List recoverable executions
 node dist/cli/main.js recovery list
 
-# resume یک execution
+# Resume an execution
 node dist/cli/main.js recovery resume exec-abc123
 ```
 
 ### Roles
 
 ```bash
-# لیست roleها
+# List available roles
 node dist/cli/main.js role list
 
-# جزئیات یک role
+# Inspect a role
 node dist/cli/main.js role show coder
 ```
 
 ### Models
 
 ```bash
-# لیست همه مدل‌ها
+# List available models
 node dist/cli/main.js model list
 
-# فقط مدل‌های محلی
+# List local models
 node dist/cli/main.js model list --local
 
-# جزئیات یک مدل
-node dist/cli/main.js model show qwen3-32b
+# Inspect a model
+node dist/cli/main.js model show qwen3:8b
 ```
 
-### Assignments
+### Role Assignments
 
 ```bash
-# لیست assignmentها
+# List current assignments
 node dist/cli/main.js assign list
 
-# تخصیص مدل به role
-node dist/cli/main.js assign set coder qwen3-8b
+# Assign models to roles
+node dist/cli/main.js assign set coder qwen3:8b
 node dist/cli/main.js assign set reviewer qwen2.5-coder-7b
-node dist/cli/main.js assign set planner qwen3-32b
+node dist/cli/main.js assign set planner qwen3:32b
 
-# بازنشانی به پیش‌فرض
+# Reset assignments
 node dist/cli/main.js assign reset
 ```
 
-### Configuration
+### Runtime Protection
 
 ```bash
-# نمایش config
-node dist/cli/main.js config show
-
-# تنظیم config
-node dist/cli/main.js config set defaultModel qwen3-8b
-```
-
-### Protection
-
-```bash
-# وضعیت محافظت
+# Inspect protection settings
 node dist/cli/main.js protect status
 
-# تنظیم محافظت
+# Change CPU threshold
 node dist/cli/main.js protect set cpuThreshold 85
+
+# Change pause duration
 node dist/cli/main.js protect set pauseDuration 60000
 
-# بازنشانی محافظت
+# Reset protection settings
 node dist/cli/main.js protect reset
 ```
 
 ---
 
-## محیط REPL
+## Interactive REPL
 
-### شروع
+The REPL provides an interactive interface for communicating with Sparrow.
+
+Start it with:
 
 ```bash
 node dist/cli/main.js repl
 ```
 
-### دستورات REPL
+### Built-in Commands
 
-| دستور | توضیح |
-|-------|-------|
-| `/help` | نمایش لیست دستورات |
-| `/status` | وضعیت پروژه و config |
-| `/protect` | تنظیمات محافظت سخت‌افزاری |
-| `/recovery` | بازیابی executionهای interrupted |
-| `/role` | مدیریت roleها |
-| `/model` | مدیریت مدل‌ها |
-| `/clear` | پاک کردن صفحه |
-| `/history` | تاریخچه دستورات |
-| `/exit` یا `/quit` | خروج |
-| `<text>` | سوال مستقیم از agent |
+| Command | Description |
+|---|---|
+| `/help` | Show available REPL commands |
+| `/status` | Display project and configuration status |
+| `/protect` | Inspect runtime protection settings |
+| `/recovery` | Inspect recoverable executions |
+| `/role` | Manage agent roles |
+| `/model` | Manage models |
+| `/clear` | Clear the terminal |
+| `/history` | Display command history |
+| `/exit` | Exit the REPL |
+| `/quit` | Exit the REPL |
 
-### مثال
-
-```
-sparrow> سلام، ساختار پروژه رو بررسی کن
-🤔 Thinking...
-📁 Project structure analyzed...
-
-sparrow> /status
-📊 Project: my-project
-   Model: qwen3-32b
-   Provider: ollama
-   Protection: enabled
-
-sparrow> /protect status
-🛡️ Runtime Protection:
-   CPU Threshold:    90%
-   Memory Threshold: 85%
-   Pause Duration:   30s
-
-sparrow> /recovery list
-No interrupted executions found.
-
-sparrow> /exit
-👋 Goodbye!
-```
+Regular text is submitted as an agent request.
 
 ---
 
-## Web UI (مشاهده‌پذیری)
+## Agent Orchestration
 
-یک رابط وب **فقط-خواندنی** برای مشاهده‌ی pipeline. جایگزین CLI/REPL نیست؛
-اجرای task فقط از طریق CLI/REPL انجام می‌شود و Web UI همان داده‌ی
-Application Services را می‌خواند.
+Sparrow includes a role-based orchestration architecture.
 
-### شرایط استفاده
+Roles define the responsibilities and execution configuration of individual agents.
 
-- ابتدا باید build انجام شده باشد (`npm run build`)، چون CLI از `dist/` اجرا می‌شود.
-- سرور باید از داخل همان workspace پروژه اجرا شود؛ workspace root از همان
-  resolver مشترک CLI گرفته می‌شود و هیچ درخواستی از مرورگر نمی‌تواند آن را تغییر دهد.
-- داده‌ی UI از `.ai/runs/` (snapshotهای اجرا) و `.ai/logs/pipeline/` (رویدادهای
-  ساخت‌یافته) خوانده می‌شود. اگر هنوز هیچ task‌ای اجرا نشده باشد، dashboard خالی است.
-- هر task باید از طریق REPL و با پیشوند `/execute` اجرا شود تا ثبت و قابل مشاهده شود.
-- سرور به‌صورت پیش‌فرض فقط روی `127.0.0.1` گوش می‌دهد و صرفاً به درخواست‌های
-  `GET` پاسخ می‌دهد. آن را در شبکه‌ی عمومی expose نکنید.
-- مقادیر حساس (token، API key، password، cookie و …) پیش از نمایش redact می‌شوند.
+### Default Roles
 
-### اجرا
+| Role | Responsibility |
+|---|---|
+| `coder` | Code implementation |
+| `reviewer` | Code and change review |
+| `planner` | Task and architectural planning |
 
-```bash
-# ترمینال ۱: در ریشه پروژه‌ی هدف
-cd /d E:\new-test-2
-node E:\agentic\dist\cli\main.js serve
+Role configurations can define tool policies and context scopes.
 
-# ترمینال ۲: اجرای task
-cd /d E:\new-test-2
-node E:\agentic\dist\cli\main.js repl
-agent> /execute یک کامنت توضیحی به ابتدای app/page.tsx اضافه کن
-```
+### Model Assignment
 
-سپس `http://127.0.0.1:4177` را در مرورگر باز کنید.
-
-گزینه‌ها:
-
-| گزینه | پیش‌فرض | توضیح |
-|-------|---------|-------|
-| `--port <n>` | `4177` | پورت سرور |
-| `--host <addr>` | `127.0.0.1` | آدرس bind |
-
-### نماها
-
-```text
-Dashboard      لیست اجراهای اخیر + وضعیت و فاز جاری
-Task           متن task، Execution Directive، Project Profile، workspace root
-Context        Context Strategy → Gathered Context → PlannerContext (با provenance)
-Skills         Skillهای resolve‌شده و منبع resolution
-Plan           TodoPlan واقعی با Todo IDهای پایدار (todo-1، todo-2، …)
-Execution      نگاشت todo → step، فایل‌ها، خطاها
-Verification   نتیجه V&V (با تفکیک WHOLE_RUN / TODO_SPECIFIC / UNKNOWN)
-Failure/Repair Failure Contract (PRIMARY/SECONDARY/INCIDENTAL) و تلاش‌های repair
-```
-
-بروزرسانی زنده با Server-Sent Events روی `/api/stream` انجام می‌شود؛ مرورگر
-هیچ‌گاه باعث context gathering مجدد یا اسکن مخزن نمی‌شود.
-
-### نکات
-
-- وضعیت نهایی اعلام‌شده توسط Core همیشه معتبر است؛ UI آن را با رویدادهای میانی
-  بازنویسی نمی‌کند.
-- اگر V&V در سطح whole-run باشد، verdict مربوط به یک Todo خاص `UNKNOWN` نمایش
-  داده می‌شود و به PASS جعلی تبدیل نمی‌شود.
-- خطای مرورگر یا قطع اتصال، هیچ تأثیری روی اجرای pipeline ندارد.
-
----
-
-## سیستم Multi-Agent
-
-### Roleهای پیش‌فرض
-
-| Role | توضیح | Tool Policy | Context Scope |
-|------|-------|-------------|---------------|
-| `coder` | نوشتن کد | default | full |
-| `reviewer` | بررسی کد | read-only | limited |
-| `planner` | طراحی معماری | default | full |
-
-### تخصیص مدل به Role
+Models can be assigned independently to different roles:
 
 ```bash
-# لیست assignmentهای فعلی
-node dist/cli/main.js assign list
-
-# تغییر مدل یک role
-node dist/cli/main.js assign set coder qwen3-8b
+node dist/cli/main.js assign set coder qwen3:8b
 node dist/cli/main.js assign set reviewer qwen2.5-coder-7b
-node dist/cli/main.js assign set planner qwen3-32b
+node dist/cli/main.js assign set planner qwen3:32b
+```
 
-# بررسی نتیجه
+Inspect the assignments:
+
+```bash
 node dist/cli/main.js assign list
-
-# خروجی:
-# ════════════════════════════════════════════════════════════
-# ROLE ASSIGNMENTS (3)
-# ════════════════════════════════════════════════════════════
-#
-#   coder
-#     Model:    qwen3-8b
-#     Provider: ollama
-#     Source:   user
-#
-#   reviewer
-#     Model:    qwen2.5-coder-7b
-#     Provider: ollama
-#     Source:   user
-#
-#   planner
-#     Model:    qwen3-32b
-#     Provider: ollama
-#     Source:   user
 ```
 
-### نحوه کار AgentOrchestrator
+The actual model and provider resolution behavior depends on the configured profiles, available providers, and current implementation.
 
-```
-AgentOrchestrator.execute(request)
-  ↓
-۱. Role resolution: roleId → RoleConfiguration
-  ↓
-۲. Model resolution: RoleAssignment → modelId + providerId
-   (اگر assignment نباشد → fallback به RoleConfiguration)
-  ↓
-۳. Validation: model exists? available? provider exists?
-  ↓
-۴. Configuration snapshot (برای traceability)
-  ↓
-۵. WorkflowOrchestrator.execute(task, model, provider)
-```
+### Programmatic Usage
 
-### تفاوت REPL/Ask با AgentOrchestrator
+The application factory provides a composition entry point for constructing application components.
 
-| | REPL / Ask | AgentOrchestrator |
-|---|---|---|
-| Role | `DefaultCliRole` (ثابت) | قابل انتخاب (coder, reviewer, planner) |
-| Model | `qwen2.5:3b` (hardcoded) | از RoleAssignment خوانده می‌شود |
-| Pipeline | ConversationOrchestrator → TaskExecutor | WorkflowOrchestrator (10-step pipeline) |
-| Planning | اختیاری (TaskPlanner) | اجباری (TaskPlanner + PlanValidator) |
-| Review | ندارد | Reviewer (deterministic) |
-| Patch | ندارد | SafePatchExecutor (retry + rollback) |
-| Git | ندارد | GitManager (commit) |
-| Checkpoint | ندارد | ResumeEngine (checkpoint after each step) |
-| Audit | ندارد | AuditService (execution history) |
-
-### استفاده از AgentOrchestrator در کد
+An example of the role-based orchestration API:
 
 ```typescript
 import { AppFactory } from './core/app-factory';
 
 const factory = new AppFactory(process.cwd(), logger);
-const orchestrator = factory.createAgentOrchestrator(process.cwd());
+
+const orchestrator =
+  factory.createAgentOrchestrator(process.cwd());
 
 const result = await orchestrator.execute({
-  roleId: 'coder',        // یا 'reviewer' یا 'planner'
-  task: 'یک فایل hello.ts بساز',
+  roleId: 'coder',
+  task: 'Create a hello.ts file',
   targetFiles: ['src/hello.ts'],
 });
 
@@ -434,246 +547,228 @@ console.log(result.success);
 console.log(result.workflowResult);
 ```
 
+This is an architectural usage example. The exact import path and constructor dependencies should be checked against the current build and public API before relying on it in an external integration.
+
 ---
 
-## مدل‌ها
+## Model and Provider Management
 
-### لیست مدل‌ها
+Sparrow separates model selection from provider-specific implementations.
 
-```bash
-node dist/cli/main.js model list
-```
+The intended architecture allows the application to resolve models through configured provider integrations rather than embedding a single LLM runtime into the entire application.
 
-### مدل‌های محلی (Ollama)
+### Local Models
 
-| Model | Family | Context | Tools |
-|-------|--------|---------|-------|
-| `qwen3-32b` | Qwen | 32K | ✅ |
-| `qwen3-8b` | Qwen | 32K | ✅ |
-| `qwen2.5-coder-7b` | Qwen | 32K | ✅ |
-| `deepseek-coder-v2` | DeepSeek | 128K | ✅ |
-| `deepseek-r1-14b` | DeepSeek | 64K | ✅ |
-| `llama3.3-70b` | Llama | 128K | ✅ |
+Local models can be accessed through supported local providers such as Ollama.
 
-### مدل‌های Cloud (نیاز به API key)
+Example configuration:
 
-| Model | Provider |
-|-------|----------|
-| `gpt-4o` | OpenAI |
-| `gpt-4o-mini` | OpenAI |
-| `o3-mini` | OpenAI |
-| `claude-sonnet-4` | Anthropic |
-| `claude-haiku-3.5` | Anthropic |
-| `gemini-2.5-pro` | Google |
-| `gemini-2.5-flash` | Google |
-
-### تغییر مدل پیش‌فرض
-
-```bash
-# روش ۱: CLI
-node dist/cli/main.js config set defaultModel qwen3-8b
-
-# روش ۲: فایل .ai/config.json
+```json
 {
-  "defaultModel": "qwen3-8b",
+  "defaultModel": "qwen3:8b",
   "defaultProvider": "ollama"
 }
-
-# روش ۳: Environment Variable
-set AGENT_DEFAULT_MODEL=qwen3-8b
-
-# روش ۴: فقط برای Knowledge Pipeline
-npx ts-node src/core/knowledge/__tests__/test-pipeline.ts qwen2.5:3b
 ```
+
+### Cloud Models
+
+Cloud-based providers may also be configured where their integrations are available.
+
+Cloud usage generally requires provider credentials and network access.
+
+**Important:** The existence of a model identifier in configuration or a model registry does not necessarily mean that the corresponding provider integration has been validated end to end.
 
 ---
 
-## Knowledge Pipeline
+## Workspace Management
 
-### اجرا
+A workspace represents the project Sparrow operates on.
+
+Initialize a new workspace:
 
 ```bash
-# با مدل پیش‌فرض (qwen3-32b از configuration)
-npx ts-node src/core/knowledge/__tests__/test-pipeline.ts
-
-# با مدل خاص
-npx ts-node src/core/knowledge/__tests__/test-pipeline.ts qwen2.5:3b
+cd /path/to/my-project
+node /path/to/sparrow/dist/cli/main.js init
 ```
 
-### مراحل
+Switch to another workspace:
 
-| Stage | توضیح | خروجی |
-|-------|-------|-------|
-| 1/3 | Architectural Map | `.ai/knowledge/architectural-map.json` |
-| 2/3 | Codebase Map | `.ai/knowledge/codebase-map.json` |
-| 3/3 | Knowledge Base | `.ai/knowledge/knowledge_base.json` |
-
-### حالت‌ها
-
-| حالت | توضیح |
-|------|-------|
-| `full` | اولین اجرا — تولید کامل |
-| `incremental` | اجراهای بعدی — فقط تغییرات |
-| `chunked` | fallback برای پروژه‌های بزرگ |
-
-### خروجی نمونه
-
+```bash
+node dist/cli/main.js use /path/to/my-project
 ```
-══════════════════════════════════════════════════════════
-🚀 KNOWLEDGE PIPELINE
-══════════════════════════════════════════════════════════
 
-✅ AppFactory created
-📋 Configuration loaded:
-   Model:      qwen3-32b
-   Ollama URL: http://localhost:11434
+Inspect the selected workspace:
 
-🔌 Checking Ollama connectivity...
-   Available models: qwen3-32b, qwen3-8b, llama3.3-70b
-✅ Ollama is running
-
-📦 Creating Knowledge Pipeline...
-✅ Pipeline created
-
-🔄 Executing pipeline...
-   Stage 1/3: Architectural Map
-   Stage 2/3: Codebase Map
-   Stage 3/3: Knowledge Base
-
-──────────────────────────────────────────────────────────
-
-⏱️  Duration: 145.3s
-
-✅ SUCCESS! Knowledge Pipeline completed.
-
-📁 Generated files:
-   📄 knowledge/architectural-map.json
-   📄 knowledge/codebase-map.json
-   📄 knowledge/knowledge_base.json
-
-📊 Generation modes:
-   Architectural Map: full
-   Codebase Map:      chunked
-   Knowledge Base:    full
-
-💡 Files are in .ai/knowledge/ directory
+```bash
+node dist/cli/main.js workspace
 ```
+
+### Workspace Structure
+
+Sparrow stores project-specific data under `.ai/`.
+
+A typical structure may include:
+
+```text
+.ai/
+├── config.json
+├── manifest/
+├── knowledge/
+├── sessions/
+├── checkpoints/
+├── audit/
+├── documentation/
+├── memory/
+└── rules/
+```
+
+The actual directories created depend on the features used and the current application configuration.
 
 ---
 
-## Recovery
+## Execution Recovery
 
-### سناریو: execution وسط کار قطع شده
+Sparrow includes checkpoint and recovery components intended to preserve progress across interrupted workflows.
+
+The general recovery process is:
+
+```text
+Execution
+    |
+    v
+Checkpoint Creation
+    |
+    v
+Execution Interrupted
+    |
+    v
+Recovery Discovery
+    |
+    v
+User Selects Execution
+    |
+    v
+Resume Preparation
+    |
+    v
+Execution Continuation
+```
+
+Recovery is designed to be an explicit operation.
+
+It should not be assumed that every interrupted execution is recoverable or that every external side effect can be safely repeated. Recovery behavior depends on checkpoint availability and the state of the underlying workflow.
+
+List recoverable executions:
 
 ```bash
-# ۱. لیست executionهای قابل resume
 node dist/cli/main.js recovery list
+```
 
-# خروجی:
-# ════════════════════════════════════════════════════════════
-# RECOVERABLE EXECUTIONS
-# ════════════════════════════════════════════════════════════
-#
-#   Execution:  exec-abc123
-#   Session:    sess-xyz789
-#   Last Step:  step-3
-#   Remaining:  2 step(s)
-#   Checkpoint: 2026-07-24T18:00:00.000Z
-#
-# To resume: agent recovery resume <executionId>
-# ════════════════════════════════════════════════════════════
+Resume an eligible execution:
 
-# ۲. resume
+```bash
 node dist/cli/main.js recovery resume exec-abc123
-
-# خروجی:
-# ✓ Resume prepared for execution exec-abc123 from step 3 (2 steps remaining)
 ```
-
-### نحوه کار
-
-```
-Execution → Checkpoint (بعد از هر step)
-    ↓ (قطع شدن)
-recovery list → شناسایی checkpoint active
-    ↓ (انتخاب کاربر — هرگز خودکار نیست)
-recovery resume → ادامه از step درست (نه از صفر)
-    ↓
-Completion → Checkpoint (status: completed)
-```
-
-### تضمین‌ها
-
-- هرگز از step صفر شروع نمی‌کند
-- هرگز execution completed را resume نمی‌کند
-- هرگز execution abandoned را resume نمی‌کند
-- executionId و sessionId حفظ می‌شود
-- stepهای completed دوباره اجرا نمی‌شوند
 
 ---
 
 ## Runtime Protection
 
-### وضعیت
+Sparrow includes a runtime protection mechanism intended to monitor system resource conditions during execution.
+
+Configurable parameters include:
+
+| Parameter | Description |
+|---|---|
+| `cpuThreshold` | CPU usage threshold |
+| `memoryThreshold` | Memory usage threshold |
+| `temperatureThreshold` | Temperature threshold |
+| `pauseDurationMs` | Pause duration |
+| `healthCheckIntervalMs` | Health-check interval |
+| `autoResume` | Whether execution can automatically resume after a pause |
+
+Example:
 
 ```bash
 node dist/cli/main.js protect status
 ```
 
-### Parameterها
-
-| Parameter | Default | توضیح |
-|-----------|---------|-------|
-| `cpuThreshold` | 90% | آستانه CPU |
-| `memoryThreshold` | 85% | آستانه Memory |
-| `temperatureThreshold` | 80°C | آستانه دما |
-| `pauseDurationMs` | 30000 | مدت pause (میلی‌ثانیه) |
-| `healthCheckIntervalMs` | 5000 | فاصله check (میلی‌ثانیه) |
-| `autoResume` | true | resume خودکار بعد از pause |
-
-### تغییر
+Change a threshold:
 
 ```bash
 node dist/cli/main.js protect set cpuThreshold 85
-node dist/cli/main.js protect set pauseDuration 60000
+```
+
+Change automatic resume behavior:
+
+```bash
 node dist/cli/main.js protect set autoResume false
-node dist/cli/main.js protect reset
 ```
 
-### نحوه کار
+Runtime protection is a resource-management mechanism, not a complete operating-system security boundary or a guarantee against resource exhaustion.
 
+---
+
+## Web UI
+
+Sparrow includes a read-only Web UI for inspecting execution information.
+
+It is designed for observability, not as a replacement for the CLI or REPL.
+
+Start the server:
+
+```bash
+node dist/cli/main.js serve
 ```
-هر step → Governor check
-    ↓
-CPU > threshold? → PAUSE → wait → RESUME → ادامه
-CPU < threshold? → CONTINUE → ادامه
+
+Open:
+
+```text
+http://127.0.0.1:4177
 ```
+
+The default binding is localhost.
+
+### Available Views
+
+| View | Information |
+|---|---|
+| Dashboard | Recent executions and their status |
+| Task | Task description and execution metadata |
+| Context | Context preparation and provenance |
+| Skills | Resolved skills and their sources |
+| Plan | Structured task plan |
+| Execution | Execution steps, files, and errors |
+| Verification | Verification results |
+| Failure / Repair | Failure information and repair attempts |
+
+The interface uses Server-Sent Events for live updates.
+
+The Web UI is intended to read existing execution data rather than initiate new agent workflows.
+
+**Security note:** Keep the Web UI bound to localhost unless a separately reviewed and secured deployment configuration is available. Do not expose it directly to the public internet.
 
 ---
 
 ## Configuration
 
-### فایل‌های Config
+Sparrow supports workspace-level and global configuration.
 
-| فایل | محل | توضیح |
-|------|-----|-------|
-| Workspace config | `.ai/config.json` | تنظیمات پروژه |
-| Global config | `~/.sparrow/config.json` | workspace selection |
+### Configuration Locations
 
-### `.ai/config.json`
+| Location | Purpose |
+|---|---|
+| `.ai/config.json` | Workspace configuration |
+| `~/.sparrow/config.json` | Global configuration |
+
+### Example Workspace Configuration
 
 ```json
 {
   "version": "0.1.0",
-  "defaultModel": "qwen3-32b",
+  "defaultModel": "qwen3:8b",
   "defaultProvider": "ollama",
   "ollamaBaseUrl": "http://localhost:11434",
-  "paths": {
-    "manifestDir": "manifest",
-    "rulesDir": "rules",
-    "knowledgeDir": "knowledge",
-    "memoryDir": "memory"
-  },
   "protection": {
     "cpuThreshold": 90,
     "memoryThreshold": 85,
@@ -685,265 +780,176 @@ CPU < threshold? → CONTINUE → ادامه
 }
 ```
 
+This is an illustrative configuration. Supported fields and defaults are determined by the current configuration schema.
+
+### Configuration Commands
+
+```bash
+# Display configuration
+node dist/cli/main.js config show
+
+# Change the default model
+node dist/cli/main.js config set defaultModel qwen3:8b
+```
+
 ### Environment Variables
 
-| Variable | توضیح | اولویت |
-|----------|-------|--------|
-| `AGENT_WORKSPACE_ROOT` | مسیر workspace | بالاترین |
-| `AGENT_DEFAULT_MODEL` | مدل پیش‌فرض | متوسط |
-| `AGENT_DEFAULT_PROVIDER` | provider پیش‌فرض | متوسط |
-| `AGENT_OLLAMA_URL` | آدرس Ollama | متوسط |
+The documented environment variables include:
 
-### Workspace Resolution Priority
+| Variable | Purpose |
+|---|---|
+| `AGENT_WORKSPACE_ROOT` | Explicit workspace root |
+| `AGENT_DEFAULT_MODEL` | Default model |
+| `AGENT_DEFAULT_PROVIDER` | Default provider |
+| `AGENT_OLLAMA_URL` | Ollama endpoint |
 
-```
-Priority 0: AGENT_WORKSPACE_ROOT env var
-Priority 1: cwd دارای .ai/ باشد
-Priority 2: agent use <path> (global config)
-Priority 3: cwd (fallback)
-```
+Environment variable names and precedence should be checked against the current configuration implementation.
 
 ---
 
-## Workspace Management
+## Project Data
 
-### پروژه جدید
+Sparrow maintains several categories of project-specific data.
 
-```bash
-cd E:\my-new-project
-node E:\agentic\dist\cli\main.js init
-node E:\agentic\dist\cli\main.js repl
-```
+| Directory | Purpose |
+|---|---|
+| `.ai/manifest/` | Project manifest |
+| `.ai/knowledge/` | Knowledge pipeline output |
+| `.ai/sessions/` | Session state |
+| `.ai/checkpoints/` | Execution checkpoints |
+| `.ai/audit/` | Execution audit records |
+| `.ai/documentation/` | Generated or managed documentation |
+| `.ai/memory/` | Workspace and role memory |
+| `.ai/rules/` | Workspace rules |
 
-### تغییر workspace
+### Knowledge Pipeline
 
-```bash
-node dist/cli/main.js use E:\my-project
-node dist/cli/main.js repl
-```
+The project includes a knowledge pipeline intended to generate structured representations of a codebase.
 
-### بررسی workspace فعلی
+Its documented outputs include:
 
-```bash
-node dist/cli/main.js workspace
-```
+- Architectural map
+- Codebase map
+- Knowledge base
 
-### ساختار `.ai/`
+The pipeline is intended to support context preparation and project understanding.
 
-```
-.ai/
-├── config.json              ← workspace configuration
-├── manifest/manifest.json   ← project manifest
-├── knowledge/               ← Knowledge Pipeline output
-│   ├── architectural-map.json
-│   ├── codebase-map.json
-│   └── knowledge_base.json
-├── sessions/                ← SessionStore
-├── checkpoints/             ← CheckpointRepository
-├── audit/                   ← AuditRepository
-├── documentation/           ← DocumentationRepository
-├── memory/                  ← MemoryStorage
-└── rules/                   ← Rules
-```
+Its output should be treated as generated project information, not as a guaranteed complete or authoritative representation of the codebase.
 
 ---
 
-## Audit Trail
+## Development
 
-### محل ذخیره
-
-```
-.ai/audit/{executionId}.json
-```
-
-### Event Types
-
-| Event | توضیح |
-|-------|-------|
-| `execution_started` | شروع execution |
-| `execution_resumed` | resume از checkpoint |
-| `step_started` | شروع step |
-| `step_completed` | اتمام موفق step |
-| `step_failed` | شکست step |
-| `checkpoint_created` | ساخت checkpoint |
-| `recovery_triggered` | trigger recovery |
-| `execution_completed` | اتمام موفق execution |
-| `execution_failed` | شکست execution |
-
-### ویژگی‌ها
-
-- **Append-only**: هرگز delete/update نمی‌شود
-- **Fail-safe**: خطای audit هرگز execution را break نمی‌کند
-- **Immutable**: همه eventها `Object.freeze` هستند
-
----
-
-## معماری
-
-### لایه‌ها
-
-```
-src/
-├── domain/          ← 44 مدل immutable
-├── contracts/       ← 57 اینترفیس
-├── core/            ← 65+ کلاس implementation
-│   ├── agent/       ← Role, Assignment, AgentOrchestrator
-│   ├── audit/       ← AuditService, FileAuditRepository
-│   ├── checkpoint/  ← CheckpointRepository, ResumeEngine
-│   ├── configuration/ ← ConfigLoader, Migrator
-│   ├── context/     ← ContextEngine, Optimizer
-│   ├── conversation/ ← ConversationOrchestrator
-│   ├── discovery/   ← ProjectDiscoveryService
-│   ├── documentation/ ← DocumentationService
-│   ├── execution/   ← TaskExecutor, StepExecutionEngine
-│   ├── git/         ← GitManager
-│   ├── health/      ← ExecutionGovernor, HealthProvider
-│   ├── knowledge/   ← KnowledgePipeline, Stages
-│   ├── memory/      ← WorkspaceMemory, RoleMemory
-│   ├── observability/ ← Telemetry, Diagnostics
-│   ├── patch/       ← PatchExecutor, BackupManager
-│   ├── planning/    ← TaskPlanner, ExecutionPlanner
-│   ├── prompt/      ← PromptBuilder
-│   ├── provider/    ← OllamaProvider, ProviderRegistry
-│   ├── recovery/    ← RecoveryService, RecoveryTrigger
-│   ├── reflection/  ← ReflectionEngine
-│   ├── review/      ← Reviewer
-│   ├── runtime/     ← LocalRuntimeRepository
-│   ├── session/     ← SessionManager, SessionStore
-│   ├── tool/        ← ToolExecutor, ToolRegistry
-│   ├── verification/ ← VerificationStrategyEngine
-│   ├── workflow/    ← WorkflowOrchestrator
-│   └── workspace/   ← LocalWorkspace
-├── cli/             ← CLI commands + REPL
-│   ├── commands/    ← ask, init, status, recovery, protect, ...
-│   └── repl/        ← ReplSession, CommandParser
-└── app-factory.ts   ← 65 create method (DI container)
-```
-
-### Dependency Rules
-
-```
-Domain ← Contracts ← Core ← CLI
-
-✅ Domain: فقط از Domain import می‌کند
-✅ Contracts: فقط از Domain import می‌کند
-✅ Core: از Domain + Contracts import می‌کند
-✅ CLI: از Core (via AppFactory) import می‌کند
-```
-
-### Execution Flow
-
-```
-CLI/REPL
-  ↓
-ConversationOrchestrator → TaskExecutor → Provider.generate()
-  ↓
-AgentOrchestrator (role resolution)
-  ↓
-WorkflowOrchestrator (10-step pipeline)
-  ├── Step 1:  Start Session
-  ├── Step 2:  Load Memory
-  ├── Step 2.5: beforePlan Hook
-  ├── Step 3:  Task Planning (LLM)
-  ├── Step 3.5: Plan Validation
-  ├── Step 3.6: afterPlan Hook
-  ├── Step 4:  Impact Analysis
-  ├── Step 5:  Deterministic Review
-  ├── Step 5.5: Runtime Protection Check
-  ├── Step 6:  Safe Patch Execution + Checkpoint + Audit
-  ├── Step 7:  Git Commit
-  ├── Step 8:  Reflection
-  ├── Step 9:  Post Execution Pipeline
-  └── Step 10: Complete Session
-```
-
----
-
-## عیب‌یابی
-
-### Ollama وصل نیست
+Install dependencies:
 
 ```bash
-# بررسی
-curl http://localhost:11434/api/tags
-
-# حل
-ollama serve
-```
-
-### مدل موجود نیست
-
-```bash
-# بررسی
-ollama list
-
-# حل
-ollama pull qwen3-32b
-```
-
-### Build خطا دارد
-
-```bash
-rm -rf dist node_modules
 npm install
+```
+
+Build:
+
+```bash
 npm run build
 ```
 
-### تست‌ها fail هستند
+Run tests:
 
 ```bash
-npx jest tests/ --runInBand --forceExit --verbose
+npm test
 ```
 
-### مدل Tool Calling پشتیبانی نمی‌کند
+For focused test execution, use the project's configured Jest tooling.
 
-```bash
-# مدل‌هایی که tools پشتیبانی می‌کنند:
-ollama pull qwen2.5:3b    # توصیه‌شده (~1.9GB)
-ollama pull qwen2.5:7b    # (~4.7GB)
-ollama pull llama3.1:8b   # (~4.7GB)
-```
+### Development Philosophy
+
+Sparrow prioritizes:
+
+- Explicit architectural boundaries
+- Deterministic control where practical
+- Testable application components
+- Observable execution
+- Controlled tool access
+- Recoverable workflows
+- Incremental stabilization
+
+Contributions should preserve these principles and include appropriate tests and documentation.
 
 ---
 
-## میانبرها
+## Security Considerations
 
-### PowerShell Alias
+Sparrow is an agentic development tool. Depending on the workflow and enabled tools, it may interact with project files, execute operations, or modify a workspace.
 
-```powershell
-# اضافه به $PROFILE
-Set-Alias agent "node E:\agentic\dist\cli\main.js"
+Use it with the same caution you would apply to any development tool with filesystem or command-execution access.
 
-# حالا:
-agent repl
-agent ask "سلام"
-agent status
-agent recovery list
-agent assign set coder qwen3-8b
-```
+Recommended precautions:
 
-### npm scripts
+1. Use a dedicated development workspace when evaluating Sparrow.
+2. Keep backups or use version control before running modification workflows.
+3. Review generated changes before accepting them.
+4. Do not provide API keys, passwords, or other secrets in prompts.
+5. Keep local observability interfaces bound to localhost.
+6. Review provider credentials and permissions before enabling integrations.
+7. Do not assume that an AI-generated plan or verification result is always correct.
 
-```bash
-npm run build     # tsc
-npm start         # node dist/cli/main.js
-npm test          # jest
-```
+Sparrow's execution controls and runtime protections should not be interpreted as a sandbox or a complete security isolation mechanism.
+
+If you discover a security vulnerability, please report it privately to the repository maintainer rather than publishing exploit details in a public issue.
 
 ---
 
-## آمار
+## Known Limitations
 
-| متریک | مقدار |
-|-------|-------|
-| Domain Models | 44 |
-| Contracts | 57 |
-| Core Classes | 65+ |
-| AppFactory Methods | 65 |
-| Test Files | 97 |
-| Total Tests | 730 |
-| Milestones | 30+ (R1→R4.26) |
-| Circular Dependencies | 0 |
-| Boundary Violations | 0 |
-| Dead Code | 0 |
-```
+Sparrow is an experimental project, and several areas require further validation.
+
+Known limitations include:
+
+- Some automated tests currently fail.
+- Integration tests may depend on external services or locally available models.
+- Provider selection and failover behavior require broader real-world validation.
+- Model compatibility and tool-calling reliability vary across providers and models.
+- Different execution entry points may not expose identical orchestration capabilities.
+- Recovery cannot guarantee safe repetition of every external side effect.
+- The Web UI is an observability interface, not a secured remote control plane.
+- Some APIs, configuration fields, and CLI behaviors may change.
+
+The latest recorded test audit found four failing suites in the targeted test run. Eleven of the twelve failing assertions were attributed to test fixture, isolation, or expectation problems; one model-dependent integration test remained blocked by the local inference environment. This is not evidence that the entire application is production-ready or fully validated.
+
+Sparrow is published to make its current implementation available for inspection, experimentation, testing, and further development.
+
+---
+
+## Roadmap
+
+The broader development direction includes:
+
+- Improving provider selection and compatibility validation
+- Strengthening automatic provider failover
+- Expanding model capability discovery
+- Improving execution reliability and recovery
+- Increasing test coverage and integration validation
+- Strengthening security boundaries around tool execution
+- Improving observability and execution diagnostics
+- Simplifying installation and developer onboarding
+
+The roadmap is subject to change as the project evolves and receives external feedback.
+
+---
+
+## License
+
+Sparrow is licensed under the [Apache License 2.0](LICENSE).
+
+Copyright © 2026 Ali Mohajeri.
+
+The Apache License grants rights to use, modify, and distribute the software under its terms.
+
+The Sparrow name, logo, and project branding are addressed separately in [TRADEMARKS.md](TRADEMARKS.md). The software license does not grant trademark rights.
+
+---
+
+## Acknowledgments
+
+Sparrow is an independently developed project exploring practical approaches to controlled, local-first agentic software development.
+
+Feedback, issue reports, testing, and thoughtful contributions are welcome.
