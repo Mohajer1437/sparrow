@@ -1,0 +1,24 @@
+{
+  "name": "Sparrow",
+  "version": "4.3.0",
+  "description": "Sparrow is an engineering system for reliably executing AI agents in software development",
+  "bin": {
+    "agent": "./dist/cli/main.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli/main.js",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/jest": "^29.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
